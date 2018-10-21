@@ -32,8 +32,6 @@ ROS Bindings can be found in the neato_node package.
 
 __author__ = "ferguson@cs.albany.edu (Michael Ferguson)"
 
-import serial
-
 BASE_WIDTH = 248    # millimeters
 MAX_SPEED = 300     # millimeters/second
 
@@ -53,7 +51,6 @@ xv11_analog_sensors = [ "WallSensorInMM",
                 "CurrentInmA",
                 "NotConnected3",
                 "BatteryTemp0InC" ]
-
 xv11_digital_sensors = [ "SNSR_DC_JACK_CONNECT",
                 "SNSR_DUSTBIN_IS_IN",
                 "SNSR_LEFT_WHEEL_EXTENDED",
@@ -62,7 +59,6 @@ xv11_digital_sensors = [ "SNSR_DC_JACK_CONNECT",
                 "LFRONTBIT",
                 "RSIDEBIT",
                 "RFRONTBIT" ]
-
 xv11_motor_info = [ "Brush_MaxPWM",
                 "Brush_PWM",
                 "Brush_mVolts",
@@ -93,7 +89,6 @@ xv11_motor_info = [ "Brush_MaxPWM",
                 "Charger_MaxPWM",
                 "Charger_PWM",
                 "Charger_mAH" ]
-
 xv11_charger_info = [ "FuelPercent",
                 "BatteryOverTemp",
                 "ChargingActive",
@@ -112,9 +107,65 @@ xv11_charger_info = [ "FuelPercent",
                 "Charger_mAH",
                 "MaxPWM" ]
 
-class xv11():
+d85_analog_sensors = ["BatteryVoltage", #InmV
+                "BatteryCurrent", #InmA
+                "BatteryTemperature", #InmC
+                "ExternalVoltage", #InmV
+                "AccelerometerX", #inmG
+                "AccelerometerY", #inmG
+                "AccelerometerZ", #inmG
+                "VacuumCurrent", #InmA
+                "SideBrushCurrent", #InmA
+                "MagSensorLeft",
+                "MagSensorRight",
+                "WallSensor", #InMM
+                "DropSensorLeft", #InMM
+                "DropSensorRight" #InMM
+                ]
+d85_digital_sensors = [ "SNSR_DC_JACK_IS_IN",
+                "SNSR_DUSTBIN_IS_IN",
+                "SNSR_LEFT_WHEEL_EXTENDED",
+                "SNSR_RIGHT_WHEEL_EXTENDED",
+                "LSIDEBIT",
+                "LFRONTBIT",
+                "LLDSBIT,0",
+                "RSIDEBIT",
+                "RFRONTBIT",
+                "RLDSBIT" ]
+d85_motor_info = [ "Brush_RPM",
+                "Brush_mA"
+                "Vacuum_RPM",
+                "Vacuum_mA",
+                "LeftWheel_RPM",
+                "LeftWheel_Load%",
+                "LeftWheel_PositionInMM",
+                "LeftWheel_Speed",
+                "RightWheel_RPM",
+                "RightWheel_Load%",
+                "RightWheel_PositionInMM",
+                "RightWheel_Speed",
+                "SideBrush_mA" ]
+d85_charger_info = [ "FuelPercent",
+                "BatteryOverTemp",
+                "ChargingActive",
+                "ChargingEnabled",
+                "ConfidentOnFuel",
+                "OnReservedFuel",
+                "EmptyFuel",
+                "BatteryFailure",
+                "ExtPwrPresent",
+                "ThermistorPresent",
+                "BattTempCAvg",
+                "VBattV",
+                "VExtV",
+                "Charger_mAH",
+                "Discharge_mAH" ]
 
-    def __init__(self, port="/dev/ttyUSB0"):
+
+class NeatoRobot():
+
+    def __init__(self, model="d85", port="/dev/ttyACM0"):
+        self.model = model
         self.port = serial.Serial(port,115200)
         # Storage for motor and sensor information
         self.state = {"LeftWheel_PositionInMM": 0, "RightWheel_PositionInMM": 0}
@@ -152,6 +203,7 @@ class xv11():
                 line = self.port.readline()
             except:
                 return []
+        # Get all 360 values
         while angle < 360:
             try:
                 vals = self.port.readline()
@@ -173,7 +225,7 @@ class xv11():
         #This is a work-around for a bug in the Neato API. The bug is that the
         #robot won't stop instantly if a 0-velocity command is sent - the robot
         #could continue moving for up to a second. To work around this bug, the
-        #first time a 0-velocity is sent in, a velocity of 1,1,1 is sent. Then, 
+        #first time a 0-velocity is sent in, a velocity of 1,1,1 is sent. Then,
         #the zero is sent. This effectively causes the robot to stop instantly.
         if (int(l) == 0 and int(r) == 0 and int(s) == 0):
             if (not self.stop_state):
@@ -197,7 +249,14 @@ class xv11():
                 line = self.port.readline()
             except:
                 return [0,0]
-        for i in range(len(xv11_motor_info)):
+
+        # number of motors depends on model
+        if self.model == "d85":
+            motorInfoCount = len(d85_motor_info)
+        elif self.model == "xv11":
+            motorInfoCount = len(xv11_motor_info)
+
+        for i in range(motorInfoCount):
             try:
                 values = self.port.readline().split(",")
                 self.state[values[0]] = int(values[1])
@@ -214,10 +273,22 @@ class xv11():
                 line = self.port.readline()
             except:
                 return
-        for i in range(len(xv11_analog_sensors)):
+
+        # number of sensors depends on model
+        if self.model == "d85":
+            sensorCount = len(d85_analog_sensors)
+        elif self.model == "xv11":
+            sensorCount = len(xv11_analog_sensors)
+
+        # Read all sensor values
+        for i in range(sensorCount):
             try:
                 values = self.port.readline().split(",")
-                self.state[values[0]] = int(values[1])
+
+                if self.model == "d85":
+                    self.state[values[0]] = int(values[2])
+                elif self.model == "xv11":
+                    self.state[values[0]] = int(values[1])
             except:
                 pass
 
@@ -230,7 +301,14 @@ class xv11():
                 line = self.port.readline()
             except:
                 return
-        for i in range(len(xv11_digital_sensors)):
+
+        # number of sensors depends on model
+        if self.model == "d85":
+            sensorCount = len(d85_digital_sensors)
+        elif self.model == "xv11":
+            sensorCount = len(xv11_digital_sensors)
+
+        for i in range(sensorCount):
             try:
                 values = self.port.readline().split(",")
                 self.state[values[0]] = int(values[1])
@@ -243,7 +321,14 @@ class xv11():
         line = self.port.readline()
         while line.split(",")[0] != "Label":
             line = self.port.readline()
-        for i in range(len(xv11_charger_info)):
+
+        # number of data depends on model
+        if self.model == "d85":
+            dataCount = len(d85_charger_info)
+        elif self.model == "xv11":
+            dataCount = len(xv11_charger_info)
+
+        for i in range(dataCount):
             values = self.port.readline().split(",")
             try:
                 self.state[values[0]] = int(values[1])
@@ -266,4 +351,3 @@ class xv11():
     #ButtonAmberDim - Start Button Amber Dim (mutually exclusive of other Button options)
     #ButtonGreenDim - Start Button Green Dim (mutually exclusive of other Button options)
     #ButtonOff - Start Button Off
-
