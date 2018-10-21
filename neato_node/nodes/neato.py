@@ -41,7 +41,7 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from tf.broadcaster import TransformBroadcaster
 
-from neato_driver.neato_driver import xv11, BASE_WIDTH, MAX_SPEED
+from neato_driver.neato_driver import NeatoRobot, BASE_WIDTH, MAX_SPEED
 
 class NeatoNode:
 
@@ -52,7 +52,7 @@ class NeatoNode:
         self.port = rospy.get_param('~port', "/dev/ttyUSB0")
         rospy.loginfo("Using port: %s"%(self.port))
 
-        self.robot = xv11(self.port)
+        self.robot = NeatoRobot("d85", self.port)
 
         rospy.Subscriber("cmd_vel", Twist, self.cmdVelCb)
         self.scanPub = rospy.Publisher('base_scan', LaserScan, queue_size=10)
