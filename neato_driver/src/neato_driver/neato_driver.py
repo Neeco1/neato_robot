@@ -1,36 +1,7 @@
 #!/usr/bin/env python
 
-# Generic driver for the Neato XV-11 Robot Vacuum
-# Copyright (c) 2010 University at Albany. All right reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#     * Neither the name of the University at Albany nor the names of its
-#       contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL VANADIUM LABS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
-# OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-# OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-"""
-neato_driver.py is a generic driver for the Neato XV-11 Robotic Vacuum.
-ROS Bindings can be found in the neato_node package.
-"""
-
-__author__ = "ferguson@cs.albany.edu (Michael Ferguson)"
+import serial
+import neato_ws
 
 BASE_WIDTH = 248    # millimeters
 MAX_SPEED = 300     # millimeters/second
@@ -166,7 +137,11 @@ class NeatoRobot():
 
     def __init__(self, model="d85", port="/dev/ttyACM0"):
         self.model = model
-        self.port = serial.Serial(port,115200)
+        if port.startswith("ws://"):
+            self.port = neato_ws.neato_ws(port)
+        else:
+            self.port = serial.Serial(port,115200)
+
         # Storage for motor and sensor information
         self.state = {"LeftWheel_PositionInMM": 0, "RightWheel_PositionInMM": 0}
         self.stop_state = True
@@ -203,6 +178,7 @@ class NeatoRobot():
                 line = self.port.readline()
             except:
                 return []
+
         # Get all 360 values
         while angle < 360:
             try:
@@ -218,6 +194,7 @@ class NeatoRobot():
             except:
                 ranges.append(0)
             angle += 1
+        #print(" ".join(map(str,ranges)))
         return ranges
 
     def setMotors(self, l, r, s):
